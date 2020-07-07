@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="./style/style.css">
+    <script src="./libs/three.min.js"></script>
+    <script src="./libs/OrbitControls.js"></script>
+    <title>WEBGL</title>
+</head>
+
+<body>
+    <script>
+        var camera, controls, scene, renderer, clock;
+        var foot, point;
+        var time = 0;
+
+        var options = {
+            size: 25,
+            speed: 1,
+            width: 400,
+            height: 400,
+            y: 200,
+            single: 4, //单次时间
+        }
+        // 数据
+
+        var data = [];
+
+        for (var i = 0; i < 500; i++) {
+            data.push({
+                wait: Math.random(),
+                x: ~~(Math.random() * options.width),
+                z: ~~(Math.random() * options.height),
+                progress: 0,
+                time: 0
+            });
+        }
+
+
+        init();
+
+        animate();
+
+        function init() {
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xcccccc);
+            scene.fog = new THREE.FogExp2(0xcccccc, 0.002);
+
+            renderer = new THREE.WebGLRenderer({
+                antialias: true
+            });
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 1000);
+            camera.position.set(200, 300, 200);
+
+            // controls
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+
+            //controls.addEventListener( 'change', render ); // call this only in static scenes (i.e., if there is no animation loop)
+
+            controls.enableDamping =
+                true; // an animation loop is required when either damping or auto-rotation are enabled
+            controls.dampingFactor = 0.05;
+
+            controls.screenSpacePanning = false;
+
+            controls.minDistance = 100;
+            controls.maxDistance = 500;
+
+            controls.maxPolarAngle = Math.PI / 2;
+
+
+            // 
+            clock = new THREE.Clock();
+
+            // world
+            var group = new THREE.Group;
+
+            // footer
+            foot = createFooter();
+
+            group.add(foot);
+
+            // point
+            new THREE.TextureLoader().load(
+                "./images/water.png",
+                function (texture) {
+
+                    point = createPoint(data, texture);
+
+                    group.add(point);
+
+                }
+            );
+
+
+            group.position.set(-options.width / 2, 0, -options.height / 2);
+
+            scene.add(group);
+            // lights
+
+            var light = new THREE.DirectionalLight(0xffffff);
+            light.position.set(1, 1, 1);
+            scene.add(light);
+
+            var light = new THREE.DirectionalLight(0x002288);
+            light.position.set(-1, -1, -1);
+            scene.add(light);
+
+            var light = new THREE.AmbientLight(0x222222);
+            scene.add(light);
+
+            //
+
+            window.addEventListener('resize', onWindowResize, false);
+
+        }
+
+
+        // 创建雨滴例子
+        function createPoint(data, texture) {
+            var width = options.width;
+            var height = options.height;
+            var size = options.size;
+            var y = options.y; // 默认Y轴高度
+            var position = [];
+            var wait = [];
+
+            var pointShader = {
+                vertexShader: `
+                    varying vec3 v_position;
+                    uniform float size;
+                    void main() {
+                        v_position = position;
+                        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                        gl_Position = projectionMatrix * mvPosition;
+                        gl_PointSize = size * 300.0 / (-mvPosition.z);
+                    }
+                `,
+
+                fragmentShader: `
+                    uniform sampler2D texture;
+                    uniform vec3 color; 
+                    void main() {
+                          gl_FragColor =  vec4(color, 1.0) * texture2D(texture, vec2(gl_PointCoord.x, 1.0 - gl_PointCoord.y));
+                    }
+                `
+            }
+
+            var geometry = new THREE.BufferGeometry();
+
+            for (let i = 0; i < data.length; i++) {
+                const elem = data[i];
+                position.push(elem.x, y, elem.z);
+                wait.push(elem.wait);
+            }
+
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(position, 3));
+            geometry.setAttribute('wait', new THREE.Float32BufferAttribute(wait, 1));
+
+            var material = new THREE.PointsMaterial({
+                size: size,
+                sizeAttenuation: false,
+                map: texture,
+                alphaTest: 0.5,
+                transparent: true
+            });
+
+            var points = new THREE.Points(geometry, material);
+
+            console.log(points);
+
+            return points;
+        }
+
+        // 创建地板
+        function createFooter() {
+            var width = options.width;
+            var height = options.height;
+
+            var planeShader = {
+                vertexShader: `
+                    varying vec3 v_position;
+                    uniform float size;
+                    void main() {
+                        v_position = position;
+                        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                        gl_Position = projectionMatrix * mvPosition;
+                    }
+                `,
+
+                fragmentShader: `
+                    uniform vec3 color;
+                    uniform float opacity;
+                    void main() {
+                        gl_FragColor =  vec4(color,opacity);
+                    }
+                `
+            }
+
+
+            var geometry = new THREE.BufferGeometry();
+
+            var vertices = new Float32Array([
+                width, 0, height,
+                width, 0, 0,
+                0, 0, 0,
+
+                width, 0, height,
+                0, 0, 0,
+                0, 0, height
+            ]);
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+
+
+            var material = new THREE.ShaderMaterial({
+
+                uniforms: {
+
+                    time: {
+                        value: 0.0
+                    },
+
+                    color: {
+                        value: new THREE.Color('#000000')
+                    },
+
+                    opacity: {
+                        value: 0.2
+                    }
+
+                },
+                transparent: true,
+
+                vertexShader: planeShader.vertexShader,
+
+                fragmentShader: planeShader.fragmentShader
+
+            });
+
+
+            var mesh = new THREE.Mesh(geometry, material);
+
+            return mesh;
+        }
+
+        function onWindowResize() {
+
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+
+            renderer.setSize(window.innerWidth, window.innerHeight);
+
+        }
+
+        function updateAnimate(dt) {
+            if (!point) return false;
+            var single = options.single;
+            var position = [];
+
+            for (let i = 0; i < data.length; i++) {
+                var elem = data[i];
+                elem.progress += dt;
+                var progress = elem.progress - elem.wait * single;
+                progress = progress < 0 ? 0 : progress;
+                var index = 1 - (progress % single) / single;
+                position.push(elem.x, index * options.y, elem.z);
+            }
+
+            point.geometry.setAttribute('position', new THREE.Float32BufferAttribute(position, 3));
+
+            time += dt * options.speed;
+        }
+
+        function animate() {
+
+            requestAnimationFrame(animate);
+
+            controls.update();
+
+            var delta = clock.getDelta();
+            updateAnimate(delta);
+
+            render();
+
+        }
+
+        function render() {
+
+            renderer.render(scene, camera);
+
+        }
+    </script>
+</body>
+
+</html>
