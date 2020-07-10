@@ -5,28 +5,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="./style/style.css">
-    <script src="./js/control.min.js"></script>
     <script src="./libs/three.min.js"></script>
     <script src="./libs/OrbitControls.js"></script>
-    <script src="./libs/FBXLoader.js"></script>
-    <script src="./libs/inflate.min.js"></script>
     <title>WEBGL</title>
 </head>
 
 <body>
     <script>
         var camera, controls, scene, renderer, clock;
-
-        var model;
-
-        var controlsMesh;
-
-        var control = {
-            top: false,
-            bottom: false,
-            left: false,
-            right: false
-        };
 
         init();
 
@@ -45,8 +31,8 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
             document.body.appendChild(renderer.domElement);
 
-            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 2000);
-            camera.position.set(0, 300, 200);
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 1000);
+            camera.position.set(200, 300, 200);
 
             // controls
 
@@ -61,38 +47,13 @@
             controls.screenSpacePanning = false;
 
             controls.minDistance = 100;
-            controls.maxDistance = 200;
+            controls.maxDistance = 500;
 
             controls.maxPolarAngle = Math.PI / 2;
 
 
-            var size = 10000;
-            var divisions = 100;
-
-            var gridHelper = new THREE.GridHelper(size, divisions);
-            scene.add(gridHelper);
-
-
             // 
             clock = new THREE.Clock();
-
-            controlsMesh = new MeshControl(camera, controls);
-
-            // load fbx
-            loadModel('./model/taxi.fbx', function (object) {
-
-                var material = normalMaterial();
-
-                object.traverse(function (mesh) {
-                    if (!mesh.material) return;
-                    mesh.material = material;
-                })
-
-                model = controlsMesh.addObject(object);
-                model.scale.set(0.1, 0.1, 0.1);
-                scene.add(model);
-
-            });
 
             // lights
 
@@ -110,59 +71,9 @@
             //
 
             window.addEventListener('resize', onWindowResize, false);
-            window.addEventListener("keydown", keyDownWalk, false);
-            window.addEventListener("keyup", keyUpWalkStop, false);
-        }
-
-        // 按下
-        function keyDownWalk(event) {
-            toKeyControl(event.keyCode, true);
-        }
-
-        // 松开
-        function keyUpWalkStop(event) {
-            toKeyControl(event.keyCode, false);
-        }
-
-        function toKeyControl(code, state = false) {
-            var isUpdate = true;
-            switch (code) {
-                case 87:
-                    control.top = state;
-                    break;
-                case 83:
-                    control.bottom = state;
-                    break;
-                case 65:
-                    control.left = state;
-                    break;
-                case 68:
-                    control.right = state;
-                    break;
-                default:
-                    isUpdate = false;
-            };
-            if (!isUpdate) return false;
-            
-        }
-
-        function loadModel(url, callback) {
-
-            var loader = new THREE.FBXLoader();
-            loader.load(url, function (object) {
-
-                callback(object);
-
-            });
 
         }
-
-        function normalMaterial() {
-
-            return new THREE.MeshNormalMaterial();
-
-        }
-
+        
         function onWindowResize() {
 
             camera.aspect = window.innerWidth / window.innerHeight;
@@ -171,9 +82,9 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
 
         }
-
+            
         function updateAnimate(dt) {
-           if (controlsMesh) controlsMesh.update(control); 
+            
         }
 
         function animate() {
